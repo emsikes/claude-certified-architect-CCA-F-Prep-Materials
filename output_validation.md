@@ -1,0 +1,61 @@
+Two main types of validation need to be performed
+- Schema validation
+  - All required fields are present
+  - Types are correct
+  - Valid enum values are chosen
+  
+- Semantic validation
+  - Checks the meaning accuracy
+  - This may impact downstream processing based on extracted fields
+  - Retry lopps can be used with specific instructions
+    - "try again" (weak retry), 
+    - A strong retry includes:
+      - the original customer message
+      - the faield extraction
+      - the exact validation error
+      - "do not invent missing information"
+      - feedback - "desired_action must be one of: refund / replacement/ store_credit / unclear.  You returned exchange which is not allowed. Re-extract; use unclear if ambiguous, do not invent"
+  -  A retry will not help when the data isn't provided and is null.  Provide instructions to return null in cases where it is acceptible, follow-on questions when it is not
+     -  e.g. order_id: null, add order_id to missing_information
+  -  When there is conflicting information in the input message, flag this rather than allowing assumptions to be made
+     -  e.g. desired_action: unclear, conflict_detected: true, conflict_reason: mentions both
+  - Verify numbers: stated vs calculated totals - if these don't match set conflict_detected: true and route for manual review
+    - stated_total - what the document says
+    - calculated_total - what your code sums from the line items
+  - detected_pattern surfaces false positives
+    - e.g. detected_pattern: damaged_item, pattern_evidence: "the left side does not work"
+    - If the model continually wrongly classifying a field the pattern_evidence field and show the words or phrases causing the mistake
+  - Add field level confidence, not an overall confidence score
+    - Some fields are clear and others uncertain
+    - e.g. order_id_confidence: high, item_confidence: high, reason_confidence: medium, desired_action_confidence: low
+    - Confidence should be tested via calibration on a labeled dataset - models can be confidently wrong
+    - Measure by document type and by field - a single number hides where it is weak
+    - 
+- Human review routing
+  - Automate the clear cases, escalate the risky ones
+  - Route to human for review:
+    - confidence is low
+    - conflict_detected is true
+    - required infomation is missin
+    - the customer asks for a policy exception
+    - the refund amount is high
+    - the request contradicts business ruls
+  - Use stratified sampling
+    - Review a sample from high, medium, and low confidence groups, not just the low ones to catch hidden systemic errors - high confidence does not guarantee corectness
+
+- Fixable vs. not fixable for validation and retry
+  - Finer taxonomy
+    - Unfixable - retrying only pressures the model to fabricate an answer - should be marked null or as missing_information
+      - Genuinely absent - not present in the source
+      - External document - data exists only in a document not provided to the model
+      - Unkown to the model - fields requiring knowledge the model does not have
+  - Improvement loop
+    - detected_pattern as an improvement loop
+      - Log - record detected_pattern on every finding
+      - Track - Monitor dismissal rate when reviewers reject findings
+      - Refine - Prioritize prompt updates for most-dismissed patterns (e.g. variable shadowing in nested scope)
+      - Repeat - Extract -> Validate -> Collect Data -> Refine -> Repeat
+  - Two-category framing
+    - tool_use + JSON Schema - eliminates schema syntax errors (malformed JSON, issing req. fields, wront types)
+    - Retry Loop - catches semantic validation errors (correct structure but wong values)
+    - tool_use solves the first category but never the second
