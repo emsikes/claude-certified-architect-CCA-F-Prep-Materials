@@ -36,10 +36,10 @@ Two main types of validation need to be performed
   - Route to human for review:
     - confidence is low
     - conflict_detected is true
-    - required infomation is missin
+    - required infomation is missing
     - the customer asks for a policy exception
     - the refund amount is high
-    - the request contradicts business ruls
+    - the request contradicts business rules
   - Use stratified sampling
     - Review a sample from high, medium, and low confidence groups, not just the low ones to catch hidden systemic errors - high confidence does not guarantee corectness
 
